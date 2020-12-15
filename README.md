@@ -9,6 +9,7 @@ Kiedy rozwiniemy 100 komentarzy do wybranego wpisu i zrezygnujemy z czytania po 
  - Usunięcie jQuery z dodatku (płyny scroll z natywnym CSS)
  - możliwość przewijania komentarzy i znalezisk
  - możliwość nie inwazyjnego nadpisawnia klawiszy
+ - usunięcie przycisku do przewijania (wtyczka korzysta z klawiszy klawiatury)
 
 ### Wersja 1.10 (05-05-2017)
 - Przewijanie wpisów klawiszami N (następny) i B (poprzedni)
