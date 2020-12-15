@@ -1,16 +1,16 @@
 // ==UserScript==
-// @name        Przewijanie mikrobloga
+// @name        Przewijanie klawiaturą dla Wykop
 // @namespace   http://www.wykop.pl/ludzie/Deykun
-// @description Dodaje możliwość przewjania wpisów na mikroblogu. Klawisze B i N przewijają stronę.
+// @description Dodaje możliwość przewjania wpisów i komentarzy na wykopie. Klawisze B i N przewijają stronę.
 // @author      Deykun
-// @version     1.10
-// @include     htt*.wykop.pl/mikroblog/*
+// @version     2.00
+// @include     htt*.wykop.pl/*
 // @grant       none
 // @run-at			document-end
 // ==/UserScript==
 
 // Możesz nieinwazynie zmienić klawisz przewijający stronę:
-// - w konsoli wpisz localStorage.setItem('ssPrevious', 'k') 
+// - w konsoli wpisz localStorage.setItem('ssPrevious', 'k')
 // - po odświeżeniu zmieni przewijanie z domyślnego b na k
 // robiąc to w taki sposób zmiany nie zostaną stracone po aktualizacji dodatku :)
 
@@ -21,7 +21,8 @@ const keysActions = {
 
 const scrollSelectors = {
   newEntryForm: '#commentForm',
-  entry: '#itemsStream > .entry',
+  link: '#itemsStream > .link', // znaleziska na liście
+  entryAndLink: '#itemsStream.comments-stream > .iC', // komentarze w znaleziskach / wpisy na mikroblogu
   pages: '.pager',
 };
 
@@ -31,9 +32,22 @@ const appendCSS = styles => {
   document.head.append(style)
 }
 
-$(document).ready(function () {
-  var navHeight = $('#nav').height(),
-      bodyHeight = $('body').height(),
+const getElementHeight = selector => {
+  const el = document.querySelector(selector);
+
+  return el ? parseFloat(getComputedStyle(el, null).height.replace('px', '')) : 0;
+}
+
+function domReady(fn) {
+  document.addEventListener("DOMContentLoaded", fn);
+  if (document.readyState === "interactive" || document.readyState === "complete" ) {
+    fn();
+  }
+}
+
+domReady(() => {
+  let navHeight = getElementHeight('#nav'),
+      bodyHeight = getElementHeight('body'),
       elements = [];
 
   appendCSS(`
@@ -44,8 +58,8 @@ $(document).ready(function () {
 
   function calcElementsY() {
     elementsY = [];
-    navHeight = $('#nav').height();
-    bodyHeight = $('body').height();
+    navHeight = getElementHeight('#nav');
+    bodyHeight = getElementHeight('body');
 
     const selectedElements = Object.values(scrollSelectors).reduce((stack, selector) => {
       const selectorElements = Array.from(document.querySelectorAll(selector));
@@ -58,13 +72,18 @@ $(document).ready(function () {
       el: el,
       y: el.getBoundingClientRect().top + bodyScrollY,
     })).sort((a, b) => a.y - b.y);
+
+    // Remove duplicated Ys
+    elements = elements.filter((el1, index, els) => els.findIndex(el2 => el2.y === el1.y) === index);
   };
   calcElementsY();
 
 
-  function smartScrollTo(direction = 'next') {
-    // Strona doładywuje wpisy po pewnym czasie
-    if (bodyHeight !== $('body').height()) { calcElementsY(); }
+  const smartScrollTo = direction => {
+    const didBodyHeightChange = bodyHeight !== getElementHeight('body');
+    if (didBodyHeightChange) {
+      calcElementsY();
+    }
 
     var y = window.pageYOffset;
 
@@ -96,18 +115,18 @@ $(document).ready(function () {
 
   }
 
-  $(document).on('keyup', (e)=> {
-      const triggerTagName = e.target.tagName.toLowerCase();
-      const userIsTyping = triggerTagName === 'input' || triggerTagName === 'textarea';
-      if (!userIsTyping) {
-        switch (e.key) {
-          case keysActions.next:
-            smartScrollTo('next');
-            break;
-          case keysActions.previous:
-            smartScrollTo('previous');
-            break;
-        }
+  document.addEventListener('keyup', event => {
+    const triggerTagName = event.target.tagName.toLowerCase();
+    const userIsTyping = triggerTagName === 'input' || triggerTagName === 'textarea';
+    if (!userIsTyping) {
+      switch (event.key) {
+        case keysActions.next:
+          smartScrollTo('next');
+          break;
+        case keysActions.previous:
+          smartScrollTo('previous');
+          break;
       }
+    }
   });
 });
