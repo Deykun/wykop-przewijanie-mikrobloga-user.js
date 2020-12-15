@@ -9,37 +9,47 @@
 // @run-at			document-end
 // ==/UserScript==
 
+const scrollSelectors = {
+  newEntryForm: '#commentForm',
+  entry: '#itemsStream > .entry',
+  pages: '.pager',
+};
+
 $(document).ready(function () {
   var $elements = $('#commentForm, div[data-type="entry"][data-id]:not(.media-content), .pager'),
       navHeight = $('#nav').height(),
       bodyHeight = $('body').height(),
-      elemPos = [];
+      elementsY = [];
 
   $('body').append('<div style="position:fixed; width: 30px; height:30px; left: 0; top:'+(navHeight+70)+'px; left:5px; z-index:10;"> <button id="next"><i class="fa fa-chevron-down"></i></button></div>');
 
-  function getY() {
-    elemPos = [];
+  function calcElementsY() {
+    elementsY = [];
     navHeight = $('#nav').height();
     bodyHeight = $('body').height();
 
-    $elements.each( function() {
-      elemPos.push($(this).offset().top);
-    });
+    const elements = Object.values(scrollSelectors).reduce((stack, selector) => {
+      const selectorElements = Array.from(document.querySelectorAll(selector));
+      
+      return [...stack, ...selectorElements];
+    }, []);
 
+    const bodyScrollTop = window.scrollY;
+    elementsY = elements.map(element => (element.getBoundingClientRect().top + bodyScrollTop));
 
     $('#next').css('top', (navHeight+60));
   };
-  getY();
+  calcElementsY();
 
 
   function nextEntry(direction) {
     // Strona doładywuje wpisy po pewnym czasie
-    if (bodyHeight !== $('body').height()) { getY(); }
+    if (bodyHeight !== $('body').height()) { calcElementsY(); }
 
     var y = window.pageYOffset;
 
-    for (var i = 1, imax = elemPos.length; i < imax ; i++) {
-      if (elemPos[i] > y+navHeight+1) {
+    for (var i = 1, imax = elementsY.length; i < imax ; i++) {
+      if (elementsY[i] > y+navHeight+1) {
         var distanceScroll = $elements.eq(i).offset().top-navHeight;
         if (direction === 'before') {
           if (i !== 0 && i !== 1) {
