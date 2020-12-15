@@ -9,83 +9,105 @@
 // @run-at			document-end
 // ==/UserScript==
 
+// Możesz nieinwazynie zmienić klawisz przewijający stronę:
+// - w konsoli wpisz localStorage.setItem('ssPrevious', 'k') 
+// - po odświeżeniu zmieni przewijanie z domyślnego b na k
+// robiąc to w taki sposób zmiany nie zostaną stracone po aktualizacji dodatku :)
+
+const keysActions = {
+  previous: localStorage.getItem('ssPrevious') || 'b',
+  next: localStorage.getItem('ssNext') || 'n',
+}
+
 const scrollSelectors = {
   newEntryForm: '#commentForm',
   entry: '#itemsStream > .entry',
   pages: '.pager',
 };
 
-$(document).ready(function () {
-  var $elements = $('#commentForm, div[data-type="entry"][data-id]:not(.media-content), .pager'),
-      navHeight = $('#nav').height(),
-      bodyHeight = $('body').height(),
-      elementsY = [];
+const appendCSS = styles => {
+  const style = document.createElement('style')
+  style.innerHTML = styles
+  document.head.append(style)
+}
 
-  $('body').append('<div style="position:fixed; width: 30px; height:30px; left: 0; top:'+(navHeight+70)+'px; left:5px; z-index:10;"> <button id="next"><i class="fa fa-chevron-down"></i></button></div>');
+$(document).ready(function () {
+  var navHeight = $('#nav').height(),
+      bodyHeight = $('body').height(),
+      elements = [];
+
+  appendCSS(`
+    html {
+      scroll-behavior: smooth;
+    }
+  `);
 
   function calcElementsY() {
     elementsY = [];
     navHeight = $('#nav').height();
     bodyHeight = $('body').height();
 
-    const elements = Object.values(scrollSelectors).reduce((stack, selector) => {
+    const selectedElements = Object.values(scrollSelectors).reduce((stack, selector) => {
       const selectorElements = Array.from(document.querySelectorAll(selector));
       
       return [...stack, ...selectorElements];
     }, []);
 
-    const bodyScrollTop = window.scrollY;
-    elementsY = elements.map(element => (element.getBoundingClientRect().top + bodyScrollTop));
-
-    $('#next').css('top', (navHeight+60));
+    const bodyScrollY = window.scrollY;    
+    elements = selectedElements.map(el => ({
+      el: el,
+      y: el.getBoundingClientRect().top + bodyScrollY,
+    })).sort((a, b) => a.y - b.y);
   };
   calcElementsY();
 
 
-  function nextEntry(direction) {
+  function smartScrollTo(direction = 'next') {
     // Strona doładywuje wpisy po pewnym czasie
     if (bodyHeight !== $('body').height()) { calcElementsY(); }
 
     var y = window.pageYOffset;
 
-    for (var i = 1, imax = elementsY.length; i < imax ; i++) {
-      if (elementsY[i] > y+navHeight+1) {
-        var distanceScroll = $elements.eq(i).offset().top-navHeight;
-        if (direction === 'before') {
-          if (i !== 0 && i !== 1) {
-            distanceScroll = $elements.eq(i-2).offset().top-navHeight;
-          } else {
-            distanceScroll = y;
-          }
-        }
+    const nextIndex = elements.findIndex(el => el.y > y + navHeight + 1);
 
-        var timeScroll = 800,
-            diffScroll = (y-distanceScroll);
-
-        if (diffScroll < 500) { timeScroll = 400; }
-        else if (diffScroll > 1500) { timeScroll = 1200; }
-
-        $('html, body').animate({
-            scrollTop: distanceScroll
-        }, timeScroll);
-        break;
+    if (direction === 'previous') {
+      if (nextIndex > 1) {
+        const previousElY = elements[nextIndex - 2].y;
+        window.scrollTo(0, previousElY - navHeight);
+      } else {
+        // TOP
+        window.scrollTo(0, 0);
       }
+
+      return;
     }
+
+    if (direction === 'next') {
+      if (nextIndex <= elements.length) {
+        const nextElY = elements[nextIndex].y;
+        window.scrollTo(0, nextElY - navHeight);
+      } else {
+        // BOTTOM
+      }
+
+      return;
+    }
+
+
   }
 
   $(document).on('keyup', (e)=> {
-      var ktrigger = e.target.tagName.toLowerCase();
-      if (ktrigger != 'input' && ktrigger != 'textarea') {
-        switch (e.which) {
-          case 78:
-            nextEntry();
+      const triggerTagName = e.target.tagName.toLowerCase();
+      const userIsTyping = triggerTagName === 'input' || triggerTagName === 'textarea';
+      if (!userIsTyping) {
+        switch (e.key) {
+          case keysActions.next:
+            smartScrollTo('next');
             break;
-          case 66:
-            nextEntry('before');
+          case keysActions.previous:
+            smartScrollTo('previous');
             break;
         }
       }
   });
-
-  $('#next').on('click', nextEntry);
 });
