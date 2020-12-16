@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name        Przewijanie klawiaturą dla Wykop
+// @name        Sprytny scroll dla Wykop.pl
 // @namespace   http://www.wykop.pl/ludzie/Deykun
-// @description Dodaje możliwość przewjania wpisów i komentarzy na wykopie. Klawisze B i N przewijają stronę.
+// @description Płyne przewijanie klawiszami, wyłączanie materiałów które nie są już widoczne.
 // @author      Deykun
 // @version     2.00
 // @include     htt*.wykop.pl/*
@@ -38,11 +38,45 @@ const getElementHeight = selector => {
   return el ? parseFloat(getComputedStyle(el, null).height.replace('px', '')) : 0;
 }
 
-function domReady(fn) {
+const domReady = fn => {
   document.addEventListener('DOMContentLoaded', fn);
   if (document.readyState === 'interactive' || document.readyState === 'complete') {
     fn();
   }
+}
+
+const debounce = (fn, time) => {
+  let timeoutHandler;
+
+  return (...args) => {
+    clearTimeout(timeoutHandler);
+    timeoutHandler = setTimeout(() => {
+      fn(...args)
+    }, time);
+  }
+}
+
+const isElementVisibleInY = el => {
+  const isVisibleEvenWhen = -20; // px
+  const { top, bottom } = el.getBoundingClientRect();
+
+  return top >= isVisibleEvenWhen || bottom >= isVisibleEvenWhen;
+}
+
+const muteExternalContent = () => {
+  const embeds = Array.from(document.querySelectorAll('.closeEmbed')).map(closeEl => closeEl.parentNode.parentNode);
+  const embedsToClose = embeds.filter(embed => !isElementVisibleInY(embed));
+
+  if (embedsToClose.length === 0) {
+    return;
+  }
+
+  embedsToClose.forEach(embedEl => {
+    const closeButton = embedEl.querySelector('.closeEmbed');
+    const event = document.createEvent('HTMLEvents');
+    event.initEvent('click', true, false);
+    closeButton.dispatchEvent(event);
+  });
 }
 
 domReady(() => {
@@ -85,8 +119,7 @@ domReady(() => {
       calcElementsY();
     }
 
-    var y = window.pageYOffset;
-
+    const y = window.pageYOffset;
     const nextIndex = elements.findIndex(el => el.y > y + navHeight + 1);
 
     if (direction === 'previous') {
@@ -116,10 +149,12 @@ domReady(() => {
   }
 
   document.addEventListener('keyup', event => {
-    const triggerTagName = event.target.tagName.toLowerCase();
-    const userIsTyping = triggerTagName === 'input' || triggerTagName === 'textarea';
+    const tagName = event.target.tagName.toLowerCase();
+    const key = event.key.toLowerCase();
+    const userIsTyping = tagName === 'input' || tagName === 'textarea';
+
     if (!userIsTyping) {
-      switch (event.key) {
+      switch (key) {
         case keysActions.next:
           smartScrollTo('next');
           break;
@@ -129,4 +164,8 @@ domReady(() => {
       }
     }
   });
+
+  document.addEventListener('scroll', debounce(() => {
+      muteExternalContent();
+  }, 150));
 });
