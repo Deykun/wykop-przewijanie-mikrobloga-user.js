@@ -196,7 +196,7 @@ domReady(() => {
         max-width: 16px;
         height: 15px;
         vertical-align: sub;
-        line-height: 13px;
+        line-height: 14px;
         font-size: 9px;
         font-weight: 400;
         transition: .1s ease-in-out;
