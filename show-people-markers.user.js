@@ -106,24 +106,27 @@ return generateCache();
 const setMarkers = ({     followers,
     followed }) => {
 
-    Array.from(document.querySelectorAll('.voters-list .link')).forEach((el) => {
-      console.log(el);
+    const selectors = [
+      '.voters-list .link', // plusy na mikroblogu
+      '.showProfileSummary b', // nicki w komentarzach
+    ];
 
+    Array.from(document.querySelectorAll(selectors.join(', '))).forEach((el) => {
         const username = el.innerText.trim();
 
         const isFollower = followers.includes(username);
         const isFollowed = followed.includes(username);
 
         if (isFollower) {
-            if (!el.classList.contains('spm-follower')) {
-el.classList.add('spm-follower');
-            }
+          if (!el.classList.contains('spm-follower')) {
+            el.classList.add('spm-follower');
+          }
         }
 
-                if (isFollowed) {
-            if (!el.classList.contains('spm-follower')) {
-el.classList.add('spm-follower');
-            }
+        if (isFollowed) {
+          if (!el.classList.contains('spm-followed')) {
+            el.classList.add('spm-followed');
+          }
         }
     });
 };
@@ -142,57 +145,52 @@ domReady(() => {
     }
 
     appendCSS(`
-      .spm-followed,
-      .spm-follower {
-        position:relative;
-      }
-
-      .spm-followed::before,
-      .spm-follower::before {
-        position: absolute;
-        bottom: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        background-color: green;
-        padding: 2px 6px;
-        border-radius: 15px;
-        color: white;
-        pointer-events: none;
-        opacity: 0;
-        transition: .3s ease-in-out;
-      }
-
-      .spm-followed:hover::before,
-      .spm-follower:hover::before {
-        opacity: 1;
-      }
-
-      .spm-followed::before {
-        content: 'Obserwowany';
-      }
-
-      .spm-follower::before {
-        content: 'Obserwujący';
-      }
-
-      .spm-followed.spm-follower::before {
-        content: 'Obserwowany, Obserwujący';
-      }
-
       .spm-followed::after,
       .spm-follower::after {
         content: '✓';
         display: inline-block;
-        margin-left: 3px;
-        background-color: green;
-        color: white;
-        width: 15px;
-        height: 15px;
-        vertical-align: middle;
-        line-height: 15px;
-        font-size: 10px;
         text-align: center;
-        border-radius: 50%;
+        border-radius: 15px;
+        margin-left: 3px;
+        border: 1px solid #06b206;
+        color: white;
+        padding: 0 3px;
+        min-width: 15px;
+        max-width: 15px;
+        height: 15px;
+        vertical-align: sub;
+        line-height: 13px;
+        font-size: 9px;
+        transition: .3s ease-in-out;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .spm-followed:hover::after,
+      .spm-follower:hover::after {
+        max-width: 100px;
+      }
+
+      .spm-follower:hover::after {
+        content: '✓ obserwujący';
+      }
+
+      .spm-followed:hover::after {
+        content: '✓ obserwowany';
+      }
+
+      .spm-follower.spm-followed:hover::after {
+        content: '✓ obserwujący/any';
+      }
+      
+      .spm-follower::after {
+        color: #06b206;
+      }
+
+      .spm-followed::after {
+        color: white;
+        background-color: #06b206;
       }
     `);
 
@@ -201,4 +199,15 @@ domReady(() => {
     const people = getPeople(username);
 
     setMarkers(people);
+
+    if (typeof ResizeObserver === 'function') {
+      const resizeObserver = new ResizeObserver(() => setMarkers(people));
+      resizeObserver.observe(document.body);
+    }
+
+    document.body.addEventListener('click', (event) => {
+      if (event.target.closest('.showVoters')) {
+        setTimeout(() => setMarkers(people), 1000);
+      }
+    });
 });
