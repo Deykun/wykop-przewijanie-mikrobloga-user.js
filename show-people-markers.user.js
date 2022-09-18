@@ -205,7 +205,7 @@ domReady(() => {
         display: inline-block;
         border-radius: 15px;
         margin-left: 3px;
-        padding: 0 5px;
+        padding: 0 4px;
         min-width: 16px;
         max-width: 16px;
         height: 15px;
@@ -213,7 +213,7 @@ domReady(() => {
         vertical-align: sub;
         line-height: 15px;
         font-size: 9px;
-        font-weight: 400;
+        font-weight: 600;
         transition: .1s ease-in-out;
         white-space: nowrap;
         overflow: hidden;
@@ -228,7 +228,7 @@ domReady(() => {
       }
 
       .spm-blacklisted:hover::after {
-        content: '✘ blokujesz';
+        content: '✗ blokujesz';
       }
 
       .spm-follower:hover::after {
@@ -244,11 +244,11 @@ domReady(() => {
       }
 
       .spm-blacklisted.spm-follower:hover::after {
-        content: '✘ zablokowany obserwujący';
+        content: '✗ zablokowany obserwujący';
       }
 
       .spm-blacklisted::after {
-        content: '✘';
+        content: '✗';
         background-color: #b0adad;
         color: #370909;
       }
