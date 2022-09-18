@@ -201,7 +201,7 @@ domReady(() => {
       .spm-followed::after,
       .spm-follower::after,
       .spm-blacklisted::after {
-        content: '✔';
+        content: '✓';
         display: inline-block;
         border-radius: 15px;
         margin-left: 3px;
@@ -232,15 +232,15 @@ domReady(() => {
       }
 
       .spm-follower:hover::after {
-        content: '✔ obserwuje';
+        content: '✓ obserwuje';
       }
 
       .spm-followed:hover::after {
-        content: '✔ obserwujesz';
+        content: '✓ obserwujesz';
       }
 
       .spm-follower.spm-followed:hover::after {
-        content: '✔ obserwuje (i -sz)';
+        content: '✓ obserwuje (i -sz)';
       }
 
       .spm-blacklisted.spm-follower:hover::after {
