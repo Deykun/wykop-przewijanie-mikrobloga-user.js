@@ -110,9 +110,8 @@ const getPeople = (username) => {
         const { lastUpdate } = cache;
 
         const DAY_MS = 24 * 60 * 60 * 1000;
-        const MINUTE_MS = 60 * 1000;
 
-        const hasNotExpiredCache = lastUpdate && (currentTimestamp - lastUpdate) < 1 * MINUTE_MS;
+        const hasNotExpiredCache = lastUpdate && (currentTimestamp - lastUpdate) < 3 * DAY_MS;
 
         if (hasNotExpiredCache) {
             return cache;
