@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name        Znacznik obserwowanych i obserwujący dla Wykop.pl
+// @name        Znacznik użytkowników dla Wykop.pl
 // @namespace   http://www.wykop.pl/ludzie/Deykun
-// @description Pokazuje ikonkę przy osobach które obserwujemy/obserwują nas na wykop.
+// @description Pokazuje ikonkę przy osobach które blokujemy/obserwujemy/obserwują nas na wykop.
 // @author      Deykun
 // @version     1.00
 // @include     htt*.wykop.pl/*
@@ -16,12 +16,6 @@ const appendCSS = (styles, { id = '' } = {} ) => {
     style.id = id;
   }
   document.head.append(style)
-}
-
-const getElementHeight = selector => {
-  const el = document.querySelector(selector);
-
-  return el ? parseFloat(getComputedStyle(el, null).height.replace('px', '')) : 0;
 }
 
 const debounce = (fn, time) => {
@@ -89,7 +83,8 @@ const fetchPeopleFromBlackList = () => {
   return people;
 }
 
-const generateCache = (username) => {
+const fetchAndCachePeople = (username) => {
+    console.info('Pobieranie osób do znaczników osób');
     const currentTimestamp = (new Date()).getTime();
     const followers = fetchPeopleByFollowStatus(username, 'followers');
     const followed = fetchPeopleByFollowStatus(username, 'followed');
@@ -115,16 +110,16 @@ const getPeople = (username) => {
         const { lastUpdate } = cache;
 
         const DAY_MS = 24 * 60 * 60 * 1000;
+        const MINUTE_MS = 60 * 1000;
 
-        const hasNotExpiredCache = lastUpdate && (currentTimestamp - lastUpdate) < 3 * DAY_MS;
+        const hasNotExpiredCache = lastUpdate && (currentTimestamp - lastUpdate) < 1 * MINUTE_MS;
 
         if (hasNotExpiredCache) {
-            console.log('People from cache');
             return cache;
         }
     }
 
-  return generateCache(username);
+  return fetchAndCachePeople(username);
 }
 
 const setMarkers = ({
@@ -133,13 +128,17 @@ const setMarkers = ({
   blacklisted = [],
 } = {}) => {
 
-    const selectors = [
+    const nickSelectors = [
       '.voters-list .link', // plusy na mikroblogu
-      '.showProfileSummary b', // nicki w komentarzach
+      '.showProfileSummary b', // w komentarzach/wpisach
+      '.user-profile .folContainer h2 > span', // na profilu
+      '.article .fix-tagline [class*="color-"]', // w lini tagów znaleziska
+      '.usercard a span b', // autora znaleziska
+      '.related .ellipsis a:first-child', // w powiązanych
     ];
 
-    Array.from(document.querySelectorAll(selectors.join(', '))).forEach((el) => {
-        const username = el.innerText.trim();
+    Array.from(document.querySelectorAll(nickSelectors.join(', '))).forEach((el) => {
+        const username = el.innerText.replace('@', '').trim();
 
         const isFollower = followers.includes(username);
         const isFollowed = followed.includes(username);
@@ -179,6 +178,22 @@ domReady(() => {
     }
 
     appendCSS(`
+        @keyframes scaleInSPM {
+          0% {
+              transform: scale(0);
+              opacity: 0;
+          }
+
+          95% {
+            transform: scale(1.1);
+          }
+      
+          100% {
+              transform: scale(1);
+              opacity: 1;
+          }
+      }
+
       .votersContainer .voters-list {
         text-align: left;
       }
@@ -190,24 +205,26 @@ domReady(() => {
         display: inline-block;
         border-radius: 15px;
         margin-left: 3px;
-        border: 1px solid #06b206;
-        padding: 0 4px;
+        padding: 0 5px;
         min-width: 16px;
         max-width: 16px;
         height: 15px;
+        color: white;
         vertical-align: sub;
-        line-height: 14px;
+        line-height: 15px;
         font-size: 9px;
         font-weight: 400;
         transition: .1s ease-in-out;
         white-space: nowrap;
         overflow: hidden;
+
+        animation: scaleInSPM .3s forwards;
       }
 
       .spm-followed:hover::after,
       .spm-follower:hover::after,
       .spm-blacklisted:hover::after {
-        max-width: 100px;
+        max-width: 200px;
       }
 
       .spm-blacklisted:hover::after {
@@ -226,47 +243,80 @@ domReady(() => {
         content: '✔ obserwuje (i -sz)';
       }
 
+      .spm-blacklisted.spm-follower:hover::after {
+        content: '✘ zablokowany obserwujący';
+      }
+
       .spm-blacklisted::after {
         content: '✘';
         background-color: #b0adad;
-        border-color: #b0adad;
-        color: #602121;
+        color: #370909;
       }
       
       .spm-follower::after {
         color: black;
-        border-color: #91dd91;
-        background-color: #91dd91;
+        background-color: #73e273;
       }
 
       .spm-followed::after {
-        color: white;
-        border-color: #06b206;
-        background-color: #06b206;
+        background-color: #02ce02;
       }
 
       .spm-follower.spm-followed::after {
-        border-color: #067a06;
-        background-color: #067a06;
+        background-color: #02ce02;
+      }
+
+      .user-profile .folContainer h2 > span::after {
+        vertical-align: middle;
       }
     `);
 
     const username = document.querySelector('.logged-user .avatar').getAttribute('alt');
 
-    const people = getPeople(username);
-
-    console.log(people);
+    let people = getPeople(username);
 
     setMarkers(people);
 
+    let debouncedSetMarkers = debounce(() => setMarkers(people), 500);
+
     if (typeof ResizeObserver === 'function') {
-      const resizeObserver = new ResizeObserver(() => setMarkers(people));
+      const resizeObserver = new ResizeObserver(debouncedSetMarkers);
       resizeObserver.observe(document.body);
     }
 
     document.body.addEventListener('click', (event) => {
       if (event.target.closest('.showVoters')) {
-        setTimeout(() => setMarkers(people), 1000);
+        setTimeout(debouncedSetMarkers, 500);
+      }
+
+
+      const resetCacheSelectors = [
+        '[data-ajaxurl*="/block/"]', // zablokuj
+        '[data-ajaxurl*="/unblock/"]', // odblokuj
+        '[data-ajaxurl*="/observe/"]', // obserwuj
+        '[data-ajaxurl*="/unobserve/"]', // przestań obserwować
+      ];
+
+      if (event.target.closest(resetCacheSelectors.join(', '))) {
+        const labelsSelectors = [
+          '.spm-follower',
+          '.spm-followed',
+          '.spm-blacklisted',
+        ];
+    
+        Array.from(document.querySelectorAll(labelsSelectors.join(', '))).forEach((el) => {
+          el.classList.remove('spm-follower');
+          el.classList.remove('spm-followed');
+          el.classList.remove('spm-blacklisted');
+        });
+
+        setTimeout(() => {
+          people = fetchAndCachePeople(username);
+
+          debouncedSetMarkers = debounce(() => setMarkers(people), 500);
+
+          debouncedSetMarkers();
+        }, 1500);
       }
     });
 });
