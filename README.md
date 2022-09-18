@@ -1,5 +1,13 @@
 Lista userscriptów dla serwisu wykop.pl (wymaga tampermonkey w przeglądarce).
 
+# Znacznik użytkowników dla Wykop.pl - show-people-markers.user.js
+
+Dodaje ✔ przy nickach obserwowanych i obserwujących i ✘ przy nickach użytkowników na czarnej liście.
+
+### Wersja 1.00 (18-09-2022)
+- ✔ przy nickach obserwowanych i obserwujących
+- ✘ przy nickach użytkowników na czarnej liście
+
 # Sprytny scroll dla Wykop.pl - smart-scroll-wykop.user.js 
 
 Dodaje możliwość przewijania Wykopu przy pomocy klawiszy B i N.
