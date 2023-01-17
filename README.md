@@ -4,7 +4,10 @@ Lista userscriptów dla serwisu wykop.pl (wymaga tampermonkey w przeglądarce).
 
 Dodaje ✓ przy nickach obserwowanych i obserwujących i ✗ przy nickach użytkowników na czarnej liście.
 
-### Wersja 1.00 (18-09-2022)
+### Werska 1.1
+- działająca wersja na nowym Wykopie
+
+### Wersja 1.0 (18-09-2022)
 - ✓ przy nickach obserwowanych i obserwujących
 - ✗ przy nickach użytkowników na czarnej liście
 

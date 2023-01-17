@@ -4,7 +4,7 @@
 // @description Pokazuje ikonkę przy osobach które blokujemy/obserwujemy/obserwują nas na wykop.
 // @author      Deykun
 // @version     1.00
-// @include     htt*.wykop.pl/*
+// @include     https://wykop.pl*
 // @grant       none
 // @run-at			document-end
 // ==/UserScript==
@@ -39,7 +39,7 @@ const fetchPeopleByFollowStatus = (nick, type) => {
         $.ajax({
             method: 'GET',
             async: false,
-            url: '/ludzie/' + type + '/' + nick + '/strona/' + page,
+            url: '/ludzie/' + nick + '/' + type + '/strona/' + page,
             success: (html) => {
                 if ($('.usercard a b', html).length) {
                     $('.usercard a b', html).each(function () {
@@ -65,10 +65,10 @@ const fetchPeopleFromBlackList = () => {
   $.ajax({
       method: 'GET',
       async: false,
-      url: '/ustawienia/czarne-listy/',
+      url: '/ustawienia/czarne-listy/profile',
       success: (html) => {
-          if ($('[data-type="users"] a b', html).length) {
-              $('[data-type="users"] a b', html).each(function () {
+          if ($('.users-list .username span', html).length) {
+              $('.users-list .username span', html).each(function () {
                   people.push($(this).text().trim());
               });
               if ((people.length % 75) > 0) end = true;
@@ -86,9 +86,15 @@ const fetchPeopleFromBlackList = () => {
 const fetchAndCachePeople = (username) => {
     console.info('Pobieranie osób do znaczników osób');
     const currentTimestamp = (new Date()).getTime();
-    const followers = fetchPeopleByFollowStatus(username, 'followers');
-    const followed = fetchPeopleByFollowStatus(username, 'followed');
+    const followers = fetchPeopleByFollowStatus(username, 'obserwujacy');
+    const followed = fetchPeopleByFollowStatus(username, 'obserwowane/profile');
     const blacklisted = fetchPeopleFromBlackList();
+
+    console.log({
+      followers,
+      followed,
+      blacklisted,
+    })
 
     const newCache = {
         lastUpdate: currentTimestamp,
@@ -128,12 +134,7 @@ const setMarkers = ({
 } = {}) => {
 
     const nickSelectors = [
-      '.voters-list .link', // plusy na mikroblogu
-      '.showProfileSummary b', // w komentarzach/wpisach
-      '.user-profile .folContainer h2 > span', // na profilu
-      '.article .fix-tagline [class*="color-"]', // w lini tagów znaleziska
-      '.usercard a span b', // autora znaleziska
-      '.related .ellipsis a:first-child', // w powiązanych
+      '.username span',
     ];
 
     Array.from(document.querySelectorAll(nickSelectors.join(', '))).forEach((el) => {
@@ -171,7 +172,10 @@ const domReady = fn => {
 }
 
 domReady(() => {
-    const isLoggedIn = Boolean(document.querySelector('.logged-user'))
+
+    setTimeout(() => {
+    const isLoggedIn = Boolean(document.querySelector('.logout'))
+    console.log('isLoggedIn', isLoggedIn);
     if (!isLoggedIn) {
       return;
     }
@@ -318,4 +322,5 @@ domReady(() => {
         }, 1500);
       }
     });
+  }, 3000);
 });
