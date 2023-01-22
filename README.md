@@ -6,6 +6,8 @@ Dodaje ✓ przy nickach obserwowanych i obserwujących i ✗ przy nickach użytk
 
 ### Werska 2.0
 - działająca wersja na nowym Wykopie
+- dodaje linki do wszystkich plusujących w listach gdzie jest ich więcej niż 300
+- koloruje plusy pod wpisami
 
 ### Wersja 1.0 (18-09-2022)
 - ✓ przy nickach obserwowanych i obserwujących

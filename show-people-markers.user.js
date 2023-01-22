@@ -29,6 +29,100 @@ const debounce = (fn, time) => {
   }
 }
 
+const fetchVoters = async ({ 
+  entryId,
+  commentId,
+}) => {
+  if (!entryId && !commentId) {
+    return [];
+  }
+
+  const token = localStorage.getItem('token');
+
+  if (!commentId) {
+    const { data } = await fetch(`/api/v3/entries/${entryId}/votes`, {
+      'headers': {
+          'Authorization': `Bearer ${token}`,
+      },
+    }).then((response) => response.json());
+
+    return data;
+  }
+
+  const { data } = await fetch(`/api/v3/entries/${entryId}/comments/${commentId}/votes`, {
+    'headers': {
+        'Authorization': `Bearer ${token}`,
+    },
+  }).then((response) => response.json());
+
+  return data;
+}
+
+const getElIdForAPI = (el) => {
+  if (!el) {
+    return;
+  }
+
+  const htmlID = el.getAttribute('id');
+
+  return htmlID ? htmlID.replace('comment-', '') : undefined;
+}
+
+const setLinksForAllVoters = async (el) => {
+  console.log('el', el);
+  const entryCommentEl = el.closest('.entry.reply');
+  const votesEl = el.closest('.entry-voters');
+  const entryEl = entryCommentEl ? entryCommentEl.parentNode.closest('.entry') : el.closest('.entry');
+
+  const entryId = getElIdForAPI(entryEl);
+  const commentId = getElIdForAPI(entryCommentEl);
+
+  votesEl.setAttribute('data-entry-id', entryId);
+  if (commentId) {
+    votesEl.setAttribute('data-comment-id', commentId);
+  }
+
+  const voters = await fetchVoters({ entryId, commentId });
+
+  const hasFetchedVoters = voters.length > 0;
+  if (!hasFetchedVoters) {
+    return;
+  }
+
+  setTimeout(() => {
+    // They don't have links
+    const rawVotesEl = votesEl.querySelector('.raw');
+
+    if (rawVotesEl) {
+      const firstUsernameToReplace = document.querySelector('.raw').innerText.split(',')[0];
+
+      if (firstUsernameToReplace) {
+        const mapVotesFromIndex = voters.findIndex(({ username }) => username === firstUsernameToReplace);
+        const votersGenerated = voters.slice(mapVotesFromIndex);
+        const isLastForIndex = votersGenerated.length - 1;
+
+        const newRawInnerHTML = votersGenerated.reduce((stack, voter, index) => {
+          const isLast = isLastForIndex === index;
+          const { username, color, status } = voter;
+          const itemHTML = `<li style="display: inline-block;">
+            <a href="/ludzie/${username}" class="username ${color}-profile ${status}">
+              <span>${username}</span>${isLast ? '' : ','}
+            </a>&nbsp;
+          </li>`;
+
+          stack += itemHTML;
+
+          return stack;
+        }, '');
+
+        rawVotesEl.innerHTML = newRawInnerHTML;
+      }
+    }
+
+    console.log('voters', voters);
+  }, 1500);
+}
+
 const fetchUsername = async () => {
   const token = localStorage.getItem('token');
   const { data: { username } } = await fetch('/api/v3/profile', {
@@ -161,7 +255,7 @@ domReady(async () => {
 
   appendCSS(`
       /* Kolorowe plusy */
-      section.entry-voters ul li a.username span {
+      a.username span {
         color: inherit !important;
       }
 
@@ -172,18 +266,20 @@ domReady(async () => {
       .spm-label::before {
         position: absolute;
         bottom: calc(100% + 2px);
+        z-index: 2;
         right: 8px;
-        padding: 3px 8px;
+        padding: 5px 8px;
         white-space: nowrap;
         font-size: 10px;
         line-height: 10px;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.04em;
+        font-weight: 600;
         border-radius: 10px;
         border-bottom-right-radius: 0;
         color: black;
-        background-color: #2e8aec;
+        background-color: #a4ccf7;
         opacity: 0;
-        transform: translateY(-50%);
+        transform: translateY(50%);
         transition: all 0.3s ease-in-out;
         pointer-events: none;
       }
@@ -191,6 +287,19 @@ domReady(async () => {
       .spm-label:hover::before {
         transform: translateY(0);
         opacity: 1;
+      }
+
+      section.stream > .content > ul li a {
+        text-overflow: initial !important;
+        width: 100%;
+      }
+
+      .users-stream li .spm-label::before,
+      .link-block .tooltip-slot .spm-label::before {
+        right: auto;
+        left: calc(100% + 2px);
+        bottom: 0;
+        border-radius: 10px;
       }
 
       .spm-label::after {
@@ -201,24 +310,26 @@ domReady(async () => {
         background-color: green;
         border-radius: 8px;
         font-size: 9px;
+        font-weight: 400;
         text-indent: -1px;
         line-height: 16px;
         margin-left: 4px;
+        vertical-align: middle;
       }
 
       .spm-follower::after {
         color: black;
-        background-color: #73e273;
+        background-color: #b5e1b5;
       }
 
       .spm-followed::after {
         color: white;
-        background-color: #02ce02;
+        background-color: #769876;
       }
 
       .spm-follower.spm-followed::after {
         color: black;
-        background-color: #02ce02;
+        background-color: #5ac95a;
       }
 
       .spm-blacklisted::after {
@@ -250,17 +361,23 @@ domReady(async () => {
     resizeObserver.observe(document.body);
   }
 
+  const observer = new MutationObserver(debouncedSetMarkers);
+  var config = {
+      childList: true,
+      subtree: true
+  };
+  observer.observe(document.body, config);
+
   document.body.addEventListener('click', (event) => {
-    if (event.target.closest('.showVoters')) {
-      setTimeout(debouncedSetMarkers, 500);
+    if (event.target.closest('.entry-voters .more')) {
+      setLinksForAllVoters(event.target);
     }
 
-
     const resetCacheSelectors = [
-      '[data-ajaxurl*="/block/"]', // zablokuj
-      '[data-ajaxurl*="/unblock/"]', // odblokuj
-      '[data-ajaxurl*="/observe/"]', // obserwuj
-      '[data-ajaxurl*="/unobserve/"]', // przestań obserwować
+      '[title="Zablokuj użytkownika"] button', // zablokuj
+      '[title="Odblokuj użytkownika"] button', // odblokuj
+      '[title="Dodaj do obserwowanych"] button', // obserwuj
+      '[title="Przestań obserwować"] button', // przestań obserwować
     ];
 
     if (event.target.closest(resetCacheSelectors.join(', '))) {  
