@@ -3,7 +3,7 @@
 // @namespace   http://www.wykop.pl/ludzie/Deykun
 // @description Pokazuje ikonkę przy osobach które blokujemy/obserwujemy/obserwują nas na wykop.
 // @author      Deykun
-// @version     2.00
+// @version     2.1
 // @include     https://wykop.pl*
 // @grant       none
 // @run-at			document-end
@@ -100,13 +100,12 @@ const setLinksForAllVoters = async (el) => {
         const votersGenerated = voters.slice(mapVotesFromIndex);
         const isLastForIndex = votersGenerated.length - 1;
 
-        const newRawInnerHTML = votersGenerated.reduce((stack, voter, index) => {
+        const newRawHTML = votersGenerated.reduce((stack, voter, index) => {
           const isLast = isLastForIndex === index;
           const { username, color, status } = voter;
           const itemHTML = `<li style="display: inline-block;">
-            <a href="/ludzie/${username}" class="username ${color}-profile ${status}">
-              <span>${username}</span>${isLast ? '' : ','}
-            </a>&nbsp;
+            <a href="/ludzie/${username}" class="username ${color}-profile ${status}" style="font-weight: 600;"
+            ><span>${username}</span></a>${isLast ? '' : ','}&nbsp;
           </li>`;
 
           stack += itemHTML;
@@ -114,12 +113,10 @@ const setLinksForAllVoters = async (el) => {
           return stack;
         }, '');
 
-        rawVotesEl.innerHTML = newRawInnerHTML;
+        rawVotesEl.outerHTML = newRawHTML;
       }
     }
-
-    console.log('voters', voters);
-  }, 1500);
+  }, 2000);
 }
 
 const fetchUsername = async () => {
@@ -147,9 +144,15 @@ const fetchUsers = async ({ url } = {}) => {
         },
       }).then((response) => response.json());
 
-      users = users.concat(data.map(({ username }) => username));
+      const newUsers = data.map(({ username }) => username).filter(username => !users.includes(username));
 
-      if (data.length === 0 || pagination.total <= users.length) {
+      users = users.concat(newUsers);
+
+      const { per_page, total } = pagination;
+
+      const areAllPageFetched = page >= Math.ceil(total / per_page);
+
+      if (data.length === 0 || areAllPageFetched) {
         end = true;
       }
 
@@ -199,44 +202,54 @@ const getPeople = (username) => {
   return fetchAndCachePeople(username);
 }
 
+const removeMarkers = () => {
+  Array.from(document.querySelectorAll('.spm-label')).forEach((el) => {
+    el.classList.remove('spm-label');
+    el.classList.remove('spm-follower');
+    el.classList.remove('spm-followed');
+    el.classList.remove('spm-blacklisted');
+  });
+}
+
 const setMarkers = ({
   followers = [],
   followed = [],
   blacklisted = [],
 } = {}) => {
+  removeMarkers();
 
-    const nickSelectors = [
-      '.username span',
-    ];
+  const nickSelectors = [
+    '.username span',
+  ];
 
-    Array.from(document.querySelectorAll(nickSelectors.join(', '))).forEach((el) => {
-        const username = el.innerText.replace('@', '').trim();
+  Array.from(document.querySelectorAll(nickSelectors.join(', '))).forEach((el) => {
+      const username = el.innerText.replace('@', '').trim();
 
-        const isFollower = followers.includes(username);
-        const isFollowed = followed.includes(username);
-        const isBlacklisted = blacklisted.includes(username);
+      const isFollower = followers.includes(username);
+      const isFollowed = followed.includes(username);
+      const isBlacklisted = blacklisted.includes(username);
 
-        if (isFollower) {
-          if (!el.classList.contains('spm-follower')) {
-            el.classList.add('spm-label');
-            el.classList.add('spm-follower');
-          }
+      if (isFollower) {
+        if (!el.classList.contains('spm-follower')) {
+          el.classList.add('spm-label');
+          el.classList.add('spm-follower');
         }
+      }
 
-        if (isFollowed) {
-          if (!el.classList.contains('spm-followed')) {
-            el.classList.add('spm-label');
-            el.classList.add('spm-followed');
-          }
+      if (isFollowed) {
+        if (!el.classList.contains('spm-followed')) {
+          el.classList.add('spm-label');
+          el.classList.add('spm-followed');
         }
+      }
 
-        if (isBlacklisted) {
-          if (!el.classList.contains('spm-blacklisted')) {
-            el.classList.add('spm-label');
-            el.classList.add('spm-blacklisted');
-          }
+      if (isBlacklisted) {
+        if (!el.classList.contains('spm-blacklisted')) {
+          el.classList.add('spm-label');
+          el.classList.add('spm-blacklisted');
         }
-    });
+      }
+  });
 };
 
 const domReady = fn => {
@@ -279,13 +292,15 @@ domReady(async () => {
         color: black;
         background-color: #a4ccf7;
         opacity: 0;
-        transform: translateY(50%);
-        transition: all 0.3s ease-in-out;
+        box-shadow: 0px 2px 3px -2px rgba(0,0,0,0.2);
+        transform: translateY(50%) scale(0);
+        transform-origin: right bottom;
+        transition: all 0.15s ease-in-out;
         pointer-events: none;
       }
 
       .spm-label:hover::before {
-        transform: translateY(0);
+        transform: translateY(0) scale(1);
         opacity: 1;
       }
 
@@ -300,6 +315,7 @@ domReady(async () => {
         left: calc(100% + 2px);
         bottom: 0;
         border-radius: 10px;
+        transform-origin: left center;
       }
 
       .spm-label::after {
@@ -311,7 +327,6 @@ domReady(async () => {
         border-radius: 8px;
         font-size: 9px;
         font-weight: 400;
-        text-indent: -1px;
         line-height: 16px;
         margin-left: 4px;
         vertical-align: middle;
@@ -333,8 +348,8 @@ domReady(async () => {
       }
 
       .spm-blacklisted::after {
-        background-color: #b0adad;
-        color: #370909;
+        background-color: #e00606;
+        color: #fff;
       }
 
       .spm-blacklisted::before { content: 'blokujesz'; }
@@ -354,7 +369,7 @@ domReady(async () => {
 
   setMarkers(people);
 
-  let debouncedSetMarkers = debounce(() => setMarkers(people), 500);
+  let debouncedSetMarkers = debounce(() => setMarkers(people), 1000);
 
   if (typeof ResizeObserver === 'function') {
     const resizeObserver = new ResizeObserver(debouncedSetMarkers);
@@ -381,12 +396,7 @@ domReady(async () => {
     ];
 
     if (event.target.closest(resetCacheSelectors.join(', '))) {  
-      Array.from(document.querySelectorAll('.spm-label')).forEach((el) => {
-        el.classList.remove('spm-label');
-        el.classList.remove('spm-follower');
-        el.classList.remove('spm-followed');
-        el.classList.remove('spm-blacklisted');
-      });
+      removeMarkers();
 
       setTimeout(() => {
         people = fetchAndCachePeople(username);
