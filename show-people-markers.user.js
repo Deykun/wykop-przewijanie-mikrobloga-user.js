@@ -69,7 +69,6 @@ const getElIdForAPI = (el) => {
 }
 
 const setLinksForAllVoters = async (el) => {
-  console.log('el', el);
   const entryCommentEl = el.closest('.entry.reply');
   const votesEl = el.closest('.entry-voters');
   const entryEl = entryCommentEl ? entryCommentEl.parentNode.closest('.entry') : el.closest('.entry');
@@ -161,7 +160,8 @@ const fetchUsers = async ({ url } = {}) => {
 };
 
 const fetchAndCachePeople = async () => {
-    console.info('Pobieranie osób do znaczników osób');
+    console.info('Pobieranie osób do znaczników osób do dodatków');
+
     const currentTimestamp = (new Date()).getTime();
     const username = await fetchUsername();
     const followers = await fetchUsers({ url: `https://wykop.pl/api/v3/profile/users/${username}/observed/users/followers` });
