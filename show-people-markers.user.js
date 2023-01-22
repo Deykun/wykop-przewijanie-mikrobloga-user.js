@@ -3,7 +3,7 @@
 // @namespace   http://www.wykop.pl/ludzie/Deykun
 // @description Pokazuje ikonkę przy osobach które blokujemy/obserwujemy/obserwują nas na wykop.
 // @author      Deykun
-// @version     1.00
+// @version     2.00
 // @include     https://wykop.pl*
 // @grant       none
 // @run-at			document-end
@@ -29,72 +29,50 @@ const debounce = (fn, time) => {
   }
 }
 
-// Stolen from https://userscripts-mirror.org/scripts/show/117457
-const fetchPeopleByFollowStatus = (nick, type) => {
-    let page = 1;
-    let end = false;
-    const people = [];
+const fetchUsername = async () => {
+  const token = localStorage.getItem('token');
+  const { data: { username } } = await fetch('/api/v3/profile', {
+    'headers': {
+        'Authorization': `Bearer ${token}`,
+    },
+  }).then((response) => response.json());
 
-    do {
-        $.ajax({
-            method: 'GET',
-            async: false,
-            url: '/ludzie/' + nick + '/' + type + '/strona/' + page,
-            success: (html) => {
-                if ($('.usercard a b', html).length) {
-                    $('.usercard a b', html).each(function () {
-                        people.push($(this).text().trim());
-                    });
-                    if ((people.length % 75) > 0) end = true;
-                } else end = true;
-            },
-            error: function (xhr) {
-                console.log(xhr.status + ' ' + xhr.statusText);
-                end = true;
-            }
-        });
-        page++;
-    } while (!end);
-
-    return people;
+  return username;
 }
 
-const fetchPeopleFromBlackList = () => {
-  const people = [];
+const fetchUsers = async ({ url } = {}) => {
+  const token = localStorage.getItem('token');
+  let page = 1;
+  let end = false;
 
-  $.ajax({
-      method: 'GET',
-      async: false,
-      url: '/ustawienia/czarne-listy/profile',
-      success: (html) => {
-          if ($('.users-list .username span', html).length) {
-              $('.users-list .username span', html).each(function () {
-                  people.push($(this).text().trim());
-              });
-              if ((people.length % 75) > 0) end = true;
-          } else end = true;
-      },
-      error: function (xhr) {
-          console.log(xhr.status + ' ' + xhr.statusText);
-          end = true;
+  let users = [];
+
+  do {
+      const { data, pagination } = await fetch(`${url}?page=${page}`, {
+        'headers': {
+            'Authorization': `Bearer ${token}`,
+        },
+      }).then((response) => response.json());
+
+      users = users.concat(data.map(({ username }) => username));
+
+      if (data.length === 0 || pagination.total <= users.length) {
+        end = true;
       }
-  });
 
-  return people;
-}
+      page++;
+  } while (!end);
 
-const fetchAndCachePeople = (username) => {
+  return users;
+};
+
+const fetchAndCachePeople = async () => {
     console.info('Pobieranie osób do znaczników osób');
     const currentTimestamp = (new Date()).getTime();
-    const followers = fetchPeopleByFollowStatus(username, 'obserwujacy');
-    const followed = fetchPeopleByFollowStatus(username, 'obserwowane/profile');
-    const blacklisted = fetchPeopleFromBlackList();
-
-    console.log({
-      followers,
-      followed,
-      blacklisted,
-    })
+    const username = await fetchUsername();
+    const followers = await fetchUsers({ url: `https://wykop.pl/api/v3/profile/users/${username}/observed/users/followers` });
+    const followed = await fetchUsers({ url: `https://wykop.pl/api/v3/profile/users/${username}/observed/users/following` });
+    const blacklisted = await fetchUsers({ url: `https://wykop.pl/api/v3/settings/blacklists/users` });
 
     const newCache = {
         lastUpdate: currentTimestamp,
@@ -146,18 +124,21 @@ const setMarkers = ({
 
         if (isFollower) {
           if (!el.classList.contains('spm-follower')) {
+            el.classList.add('spm-label');
             el.classList.add('spm-follower');
           }
         }
 
         if (isFollowed) {
           if (!el.classList.contains('spm-followed')) {
+            el.classList.add('spm-label');
             el.classList.add('spm-followed');
           }
         }
 
         if (isBlacklisted) {
           if (!el.classList.contains('spm-blacklisted')) {
+            el.classList.add('spm-label');
             el.classList.add('spm-blacklisted');
           }
         }
@@ -171,156 +152,132 @@ const domReady = fn => {
   }
 }
 
-domReady(() => {
+domReady(async () => {
+  const token = localStorage.getItem('token');
+  const isLoggedIn = Boolean(token)
+  if (!isLoggedIn) {
+    return;
+  }
 
-    setTimeout(() => {
-    const isLoggedIn = Boolean(document.querySelector('.logout'))
-    console.log('isLoggedIn', isLoggedIn);
-    if (!isLoggedIn) {
-      return;
-    }
-
-    appendCSS(`
-        @keyframes scaleInSPM {
-          0% {
-              transform: scale(0);
-              opacity: 0;
-          }
-
-          95% {
-            transform: scale(1.1);
-          }
-      
-          100% {
-              transform: scale(1);
-              opacity: 1;
-          }
+  appendCSS(`
+      /* Kolorowe plusy */
+      section.entry-voters ul li a.username span {
+        color: inherit !important;
       }
 
-      .votersContainer .voters-list {
-        text-align: left;
+      .spm-label {
+        position: relative;
       }
-
-      .spm-followed::after,
-      .spm-follower::after,
-      .spm-blacklisted::after {
-        content: '✓';
-        display: inline-block;
-        border-radius: 15px;
-        margin-left: 3px;
-        padding: 0 4px;
-        min-width: 16px;
-        max-width: 16px;
-        height: 15px;
-        color: white;
-        vertical-align: sub;
-        line-height: 15px;
-        font-size: 9px;
-        font-weight: 600;
-        transition: .1s ease-in-out;
+  
+      .spm-label::before {
+        position: absolute;
+        bottom: calc(100% + 2px);
+        right: 8px;
+        padding: 3px 8px;
         white-space: nowrap;
-        overflow: hidden;
-
-        animation: scaleInSPM .3s forwards;
+        font-size: 10px;
+        line-height: 10px;
+        letter-spacing: 0.05em;
+        border-radius: 10px;
+        border-bottom-right-radius: 0;
+        color: black;
+        background-color: #2e8aec;
+        opacity: 0;
+        transform: translateY(-50%);
+        transition: all 0.3s ease-in-out;
+        pointer-events: none;
       }
 
-      .spm-followed:hover::after,
-      .spm-follower:hover::after,
-      .spm-blacklisted:hover::after {
-        max-width: 200px;
+      .spm-label:hover::before {
+        transform: translateY(0);
+        opacity: 1;
       }
 
-      .spm-blacklisted:hover::after {
-        content: '✗ blokujesz';
+      .spm-label::after {
+        height: 16px;
+        width: 16px;
+        display: inline-block;
+        text-align: center;
+        background-color: green;
+        border-radius: 8px;
+        font-size: 9px;
+        text-indent: -1px;
+        line-height: 16px;
+        margin-left: 4px;
       }
 
-      .spm-follower:hover::after {
-        content: '✓ obserwuje';
-      }
-
-      .spm-followed:hover::after {
-        content: '✓ obserwujesz';
-      }
-
-      .spm-follower.spm-followed:hover::after {
-        content: '✓ obserwuje (i -sz)';
-      }
-
-      .spm-blacklisted.spm-follower:hover::after {
-        content: '✗ zablokowany obserwujący';
-      }
-
-      .spm-blacklisted::after {
-        content: '✗';
-        background-color: #b0adad;
-        color: #370909;
-      }
-      
       .spm-follower::after {
         color: black;
         background-color: #73e273;
       }
 
       .spm-followed::after {
+        color: white;
         background-color: #02ce02;
       }
 
       .spm-follower.spm-followed::after {
+        color: black;
         background-color: #02ce02;
       }
 
-      .user-profile .folContainer h2 > span::after {
-        vertical-align: middle;
+      .spm-blacklisted::after {
+        background-color: #b0adad;
+        color: #370909;
       }
-    `);
 
-    const username = document.querySelector('.logged-user .avatar').getAttribute('alt');
+      .spm-blacklisted::before { content: 'blokujesz'; }
+      .spm-blacklisted::after { content: '✗'; }
 
-    let people = getPeople(username);
+      .spm-follower::before { content: 'obserwuje Cię'; }
+      .spm-follower::after { content: '✔'; }
 
-    setMarkers(people);
+      .spm-followed::before { content: 'obserwujesz'; }
+      .spm-followed::after { content: '✔'; }
+  
+      .spm-follower.spm-followed::before { content: 'obserwujecie się'; }
+      .spm-blacklisted.spm-follower::before { content: 'zablokowany obserwujący'; }
+  `);
 
-    let debouncedSetMarkers = debounce(() => setMarkers(people), 500);
+  let people = await getPeople();
 
-    if (typeof ResizeObserver === 'function') {
-      const resizeObserver = new ResizeObserver(debouncedSetMarkers);
-      resizeObserver.observe(document.body);
+  setMarkers(people);
+
+  let debouncedSetMarkers = debounce(() => setMarkers(people), 500);
+
+  if (typeof ResizeObserver === 'function') {
+    const resizeObserver = new ResizeObserver(debouncedSetMarkers);
+    resizeObserver.observe(document.body);
+  }
+
+  document.body.addEventListener('click', (event) => {
+    if (event.target.closest('.showVoters')) {
+      setTimeout(debouncedSetMarkers, 500);
     }
 
-    document.body.addEventListener('click', (event) => {
-      if (event.target.closest('.showVoters')) {
-        setTimeout(debouncedSetMarkers, 500);
-      }
 
+    const resetCacheSelectors = [
+      '[data-ajaxurl*="/block/"]', // zablokuj
+      '[data-ajaxurl*="/unblock/"]', // odblokuj
+      '[data-ajaxurl*="/observe/"]', // obserwuj
+      '[data-ajaxurl*="/unobserve/"]', // przestań obserwować
+    ];
 
-      const resetCacheSelectors = [
-        '[data-ajaxurl*="/block/"]', // zablokuj
-        '[data-ajaxurl*="/unblock/"]', // odblokuj
-        '[data-ajaxurl*="/observe/"]', // obserwuj
-        '[data-ajaxurl*="/unobserve/"]', // przestań obserwować
-      ];
+    if (event.target.closest(resetCacheSelectors.join(', '))) {  
+      Array.from(document.querySelectorAll('.spm-label')).forEach((el) => {
+        el.classList.remove('spm-label');
+        el.classList.remove('spm-follower');
+        el.classList.remove('spm-followed');
+        el.classList.remove('spm-blacklisted');
+      });
 
-      if (event.target.closest(resetCacheSelectors.join(', '))) {
-        const labelsSelectors = [
-          '.spm-follower',
-          '.spm-followed',
-          '.spm-blacklisted',
-        ];
-    
-        Array.from(document.querySelectorAll(labelsSelectors.join(', '))).forEach((el) => {
-          el.classList.remove('spm-follower');
-          el.classList.remove('spm-followed');
-          el.classList.remove('spm-blacklisted');
-        });
+      setTimeout(() => {
+        people = fetchAndCachePeople(username);
 
-        setTimeout(() => {
-          people = fetchAndCachePeople(username);
+        debouncedSetMarkers = debounce(() => setMarkers(people), 500);
 
-          debouncedSetMarkers = debounce(() => setMarkers(people), 500);
-
-          debouncedSetMarkers();
-        }, 1500);
-      }
-    });
-  }, 3000);
+        debouncedSetMarkers();
+      }, 1500);
+    }
+  });
 });
