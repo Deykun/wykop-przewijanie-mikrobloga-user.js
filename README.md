@@ -2,7 +2,10 @@ Lista userscriptów dla serwisu wykop.pl (wymaga tampermonkey w przeglądarce).
 
 # Znacznik użytkowników dla Wykop.pl - show-people-markers.user.js
 
-Dodaje ✓ przy nickach obserwowanych i obserwujących i ✗ przy nickach użytkowników na czarnej liście.
+Dodaje ✓ przy nickach obserwowanych i obserwujących i ✗ przy nickach użytkowników na czarnej liście, "OP" przy autorze wpisu, i ❤ przy Tobie. :3
+
+### Wersja 2.2 (29-01-2022)
+- dodano markery dla użytkownika dodatku i autora posta
 
 ### Wersja 2.1 (22-01-2022)
 - lepsze wkomponowanie wygenerowanych linków
