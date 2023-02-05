@@ -463,6 +463,7 @@ domReady(async () => {
       }
 
       /* Banned stay gray */
+      a.username.banned,
       a.username.banned:hover span {
         color: var(--gullGray) !important;
       }
