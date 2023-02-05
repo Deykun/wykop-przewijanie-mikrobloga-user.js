@@ -7,6 +7,7 @@ Dodaje ✓ przy nickach obserwowanych i obserwujących i ✗ przy nickach użytk
 ### Wersja 2.3 (05-02-2023)
 - poprawiono kolorowanie markerów z wieloma flagami
 - poprawiono dodawanie plusujących powyżej 300 plusów
+- poprawiono błędne markery gdy autor wpisu usunął konto
 - przywrócono brak kolorowania plusów dla zbanowanych (nowy wykop ukrywa te informację)
 - przywrócono na profilu zbanowanego powód (nowy wykop ukrywa te informację)
 
