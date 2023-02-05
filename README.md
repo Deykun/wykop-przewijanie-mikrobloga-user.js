@@ -4,14 +4,20 @@ Lista userscriptów dla serwisu wykop.pl (wymaga tampermonkey w przeglądarce).
 
 Dodaje ✓ przy nickach obserwowanych i obserwujących i ✗ przy nickach użytkowników na czarnej liście, "OP" przy autorze wpisu, i ❤ przy Tobie. :3
 
-### Wersja 2.2 (29-01-2022)
+### Wersja 2.3 (05-02-2023)
+- poprawiono kolorowanie markerów z wieloma flagami
+- poprawiono dodawanie plusujących powyżej 300 plusów
+- przywrócono brak kolorowania plusów dla zbanowanych (nowy wykop ukrywa te informację)
+- przywrócono na profilu zbanowanego powód (nowy wykop ukrywa te informację)
+
+### Wersja 2.2 (29-01-2023)
 - dodano markery dla użytkownika dodatku i autora posta
 
-### Wersja 2.1 (22-01-2022)
+### Wersja 2.1 (22-01-2023)
 - lepsze wkomponowanie wygenerowanych linków
 - usuwanie checków przy zmianie podstrony (czasami element zostawał ale dostawał nowy nick)
 
-### Wersja 2.0 (22-01-2022)
+### Wersja 2.0 (22-01-2023)
 - działająca wersja na nowym Wykopie
 - dodaje linki do wszystkich plusujących w listach gdzie jest ich więcej niż 300
 - koloruje plusy pod wpisami

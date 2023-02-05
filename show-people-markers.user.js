@@ -3,7 +3,7 @@
 // @namespace   http://www.wykop.pl/ludzie/Deykun
 // @description Pokazuje ikonkę przy osobach które blokujemy/obserwujemy/obserwują nas na wykop.
 // @author      Deykun
-// @version     2.2
+// @version     2.3
 // @include     https://wykop.pl*
 // @grant       none
 // @run-at			document-end
@@ -81,14 +81,16 @@ const getEntryDataFromEl = (el) => {
 
   let entryAuthor = authorByEntryId[entryId];
   if (entryEl) {
-    entryAuthor = entryEl.querySelector('header .username span')?.innerText?.trim();
+    entryAuthorRaw = entryEl.querySelector('header .username span')?.innerText?.trim();
+    entryAuthor = entryAuthorRaw !== 'konto usunięte' ? entryAuthorRaw : undefined;
 
     authorByEntryId[entryId] = entryAuthor;
   }
 
   let commentAuthor = authorByCommentId[commentId];
   if (entryCommentEl && entryEl) {
-    commentAuthor = entryCommentEl.querySelector('header .username span')?.innerText?.trim();
+    commentAuthorRaw = entryCommentEl.querySelector('header .username span')?.innerText?.trim();
+    commentAuthor = commentAuthorRaw !== 'konto usunięte' ? commentAuthorRaw : undefined;
 
     authorByCommentId[commentId] = commentAuthor;
   }
@@ -132,15 +134,18 @@ const setLinksForAllVoters = async (el) => {
       const firstUsernameToReplace = document.querySelector('.raw').innerText.split(',')[0];
 
       if (firstUsernameToReplace) {
-        const mapVotesFromIndex = voters.findIndex(({ username }) => username === firstUsernameToReplace);
+        // It adds to raw from 300 dynamic setting for this is problematic because sometimes the first element is "konto usunięte"
+        const mapVotesFromIndex = 300; // voters.findIndex(({ username }) => username === firstUsernameToReplace)
         const votersGenerated = voters.slice(mapVotesFromIndex);
         const isLastForIndex = votersGenerated.length - 1;
 
         const newRawHTML = votersGenerated.reduce((stack, voter, index) => {
           const isLast = isLastForIndex === index;
           const { username, color, status } = voter;
+          // suspended is bug or some kind of shadowban those users look normal but have this status 
+          const isActive = ['active', 'suspended'].includes(status); // Other: removed, banned
           const itemHTML = `<li style="display: inline-block;">
-            <a href="/ludzie/${username}" class="username ${color}-profile ${status}"
+            <a href="/ludzie/${username}" class="username ${isActive ? `${color}-profile` : ''} ${status}"
             ><span>${username}</span></a>${isLast ? '' : ','}&nbsp;
           </li>`;
 
@@ -164,6 +169,17 @@ const fetchUsername = async () => {
   }).then((response) => response.json());
 
   return username;
+}
+
+const fetchProfileByUsername = async (username) => {
+  const token = localStorage.getItem('token');
+  const { data } = await fetch(`/api/v3/profile/users/${username}`, {
+    'headers': {
+        'Authorization': `Bearer ${token}`,
+    },
+  }).then((response) => response.json());
+
+  return data;
 }
 
 const fetchUsers = async ({ url } = {}) => {
@@ -259,13 +275,13 @@ const getMarkerDataForUser = ({
   let icon = '';
   const labelParts = [];
   const classesToAdd = [];
-  const classesToRemove = ['spm-label', 'spm-you', 'spm-op', 'spm-blacklisted', 'spm-follower', 'spm-followed'];
+  const classesToRemove = ['spm-label', 'spm-you', 'spm-op', 'spm-blacklisted', 'spm-follower-and-followed', 'spm-follower', 'spm-followed'];
 
   if (isFollower && isFollowed) {
     labelParts.push('obserwujecie się');
     icon = '✔';
-    classesToAdd.push('spm-follower', 'spm-followed');
-    classesToRemove.filter((className) => ['spm-follower', 'spm-followed'].includes(className));
+    classesToAdd.push('spm-follower-and-followed');
+    classesToRemove.filter((className) => ['spm-follower-and-followed'].includes(className));
   } else {
     if (isFollower) {
       labelParts.push('obserwuje Cię');
@@ -317,12 +333,67 @@ const getMarkerDataForUser = ({
   }
 }
 
+const showBanReasonIfPossible = async () => {
+  const banReasonEl = document.querySelector('.profile-top.wide-top > .info-box.red p');
+  const isBannedUserPage = Boolean(banReasonEl);
+  if (!isBannedUserPage) {
+    return;
+  }
+
+  const username = document.querySelector('.profile-top.wide-top .username span').innerText.trim();
+
+  const ourBanReasonEl = banReasonEl.querySelector('.spm-ban-reason');
+  const isOurReasonShownAlready = Boolean(ourBanReasonEl);
+  if (isOurReasonShownAlready) {
+    const isForThisUser = ourBanReasonEl.getAttribute('data-username') === username;
+    if (isForThisUser) {
+      return;
+    } else {
+      ourBanReasonEl.remove();
+    }
+  }
+
+  const isReasonGiven = banReasonEl.innerText !== 'To konto jest obecnie zbanowane.';
+  if (isReasonGiven) {
+    return;
+  }
+
+  try {
+    const { banned = {} } = await fetchProfileByUsername(username);
+    const {
+      expired,
+      reason,
+    } = banned;
+
+    console.info(`${username} ban info`, {
+      username,
+      ...banned,
+    })
+
+    const formatedReason = [];
+
+    if (reason) {
+      formatedReason.push(`${reason}`);
+    }
+
+    if (expired) {
+      formatedReason.push(`do ${expired}`);
+    }
+
+    const reasonToShow = formatedReason.length ? `<br/><br/><strong>Szeczegóły API:</strong><br />${formatedReason.join(' ')}` : '';
+
+    banReasonEl.innerHTML = `To konto jest obecnie zbanowane.<small class="spm-ban-reason" data-username="${username}">${reasonToShow}</small>`;
+  } catch { }
+}
+
 const setMarkers = ({
   you,
   followers = [],
   followed = [],
   blacklisted = [],
 } = {}) => {
+  showBanReasonIfPossible();
+
   const nickSelectors = [
     '.username span',
   ];
@@ -387,8 +458,13 @@ domReady(async () => {
 
   appendCSS(`
       /* Kolorowe plusy */
-      a.username span {
+      a.username:not(.banned) span {
         color: inherit !important;
+      }
+
+      /* Banned stay gray */
+      a.username.banned:hover span {
+        color: var(--gullGray) !important;
       }
 
       .spm-label {
@@ -479,8 +555,8 @@ domReady(async () => {
         background-color: #769876;
       }
 
-      .spm-follower.spm-followed::before,
-      .spm-follower.spm-followed::after {
+      .spm-follower-and-followed::before,
+      .spm-follower-and-followed::after {
         color: black;
         background-color: #5ac95a;
       }
@@ -504,9 +580,9 @@ domReady(async () => {
       }
 
       .spm-op[data-spm-icon="OP"]::after {
-        font-size: 7px;
-        letter-spacing: 0.1em;
-        font-weight: 600;
+        font-size: 7px !important;
+        letter-spacing: 0.1em !important;
+        font-weight: 600 !important;
       }
   `);
 
