@@ -380,7 +380,7 @@ const showBanReasonIfPossible = async () => {
       formatedReason.push(`do ${expired}`);
     }
 
-    const reasonToShow = formatedReason.length ? `<br/><br/><strong>Szeczegóły API:</strong><br />${formatedReason.join(' ')}` : '';
+    const reasonToShow = formatedReason.length ? `<br/><br/><strong>Szczegóły API:</strong><br />${formatedReason.join(' ')}` : '';
 
     banReasonEl.innerHTML = `To konto jest obecnie zbanowane.<small class="spm-ban-reason" data-username="${username}">${reasonToShow}</small>`;
   } catch { }
